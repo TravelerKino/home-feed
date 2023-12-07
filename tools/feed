@@ -1,0 +1,404 @@
+import argparse
+import json
+import random
+
+from os import path
+from typing import *
+
+current_directory = path.join(path.dirname(__file__)).replace("\\tools", "")
+
+def getConfig() -> dict:
+    with open(f"{current_directory}/metadata.json", "r") as f:
+        return json.load(f)
+    
+def setConfig(config: dict) -> None:
+    with open(f"{current_directory}/metadata.json", "w") as f:
+        json.dump(config, f, indent = 4)
+    
+def scanIds(items, feed_type, id, counter = 0, max_scans=10) -> int | None:
+    found = [x for x in items if x["id"] == f"{feed_type}-{id}"]
+
+    if found == [] or counter >= max_scans: return id
+
+    id = random.randint(50000, 900000000000)
+    counter += 1
+    
+    return scanIds(items, feed_type, id, counter=counter, max_scans=max_scans)
+
+def setupCollection(args):
+    feed_type = getFullType(args.collection_type)
+    feed_path = f"{getFeedPath()}/{feed_type}.json"
+
+    if(args.id is None):
+        if path.exists(feed_path):
+            print(f"A collection using {args.collection_type} already exists.")
+            return
+        
+        createCollection(feed_path, feed_type)
+
+        return feed_type, feed_path
+    
+    if not path.exists(feed_path):
+        createCollection(feed_path, feed_type)
+
+    return feed_type, feed_path
+
+def createCollection(feed_path, feed_type) -> None:
+    with open(feed_path, "w") as f:
+        config = getConfig()
+
+        info = feed_type == "hero_carousel" and {
+            "type": feed_type,
+            "heros": []
+        } or {
+            "type": feed_type,
+            "items": []
+        }
+
+        f.write(json.dumps(info, indent=4))
+
+        if not feed_type in config["available_feeds"]:
+            config["available_feeds"].append(feed_type)
+            setConfig(config)
+
+def createItem(item_id, item_type, **kwargs) -> dict:
+    result = kwargs
+
+    result["id"] = f"{item_type}-{item_id}"
+    result["resource_type"] = item_type
+
+    return result
+
+feed_types = {
+    "dynamic": "dynamic_collection",
+    "curated": "curated_collection",
+    "carousel": "hero_carousel",
+    "panel": "panel",
+    "continue": "continue_watching",
+    "music collection": "music_videos_collection",
+    "concerts": "concerts_collection",
+    "artists": "artists_collection",
+    "aritst": "artist",
+    "music": "music_video",
+    "concert": "music_concert",
+    "games": "games_collection",
+    "banner": "in_feed_banner"
+}
+feed_names = [name for name in feed_types.keys()]
+
+getFeedPath = lambda: f"{current_directory}{getConfig()['link']}"
+getFullType = lambda type_str: feed_types[type_str]
+
+class CommandInformation:
+    def __init__(self, name, help, args):
+        self.name = name
+        self.help = help
+        self.args = args
+        self.parser = None
+        
+    def create(self, handler: argparse._SubParsersAction):
+        self.parser: argparse.ArgumentParser  = handler.add_parser(
+            self.name,
+            help = self.help
+        )
+
+        for arg in self.args:
+            names = arg.pop("name")
+
+            names = type(names) == str and [names] or names
+
+            self.parser.add_argument(*names, **arg)
+
+        self.parser.set_defaults(func=vars(CommandHandler)[self.name])
+
+class CommandHandler:
+    available_commands: list[CommandInformation] = [
+        CommandInformation(
+            "add", 
+            "Add a new collection item or create a new collection type.",
+            [
+                {
+                    "name": "collection_type",
+                    "help": "Name of the collection type",
+                    "choices": feed_names
+                },
+                {
+                    "name": "id",
+                    "help": "Id of the item you want to add",
+                    "nargs": "?"
+                },
+                {
+                    "name": ["title"],
+                    "default": "Collection Title",
+                    "help": "A title for the item",
+                    "nargs": "?"
+                },
+                {
+                    "name": ["-d", "--description"],
+                    "default": "",
+                    "help": "Description for the item",
+                },
+                {
+                    "name": ["-pos", "--position"],
+                    "default": "5",
+                    "help": "Position for the item.",
+                    "type": int
+                },
+                {
+                    "name": ["-rt", "--response-type"],
+                    "dest": "response_type",
+                    "default": "series",
+                    "help": "Response type for the item",
+                    "choices": [
+                        "recommendations",
+                        "history",
+                        "watchlist",
+                        "browse",
+                        "because_you_watched",
+                        "series",
+                        "recent_episodes"
+                        # "news_feed",
+                        # "artist",
+                        # "music_video",
+                        # "concert",
+                        # "music_media_mixed",
+                    ]
+                },
+                {
+                    "name": ["-dt", "--display-type"],
+                    "dest": "display_type",
+                    "help": "Display type for the item",
+                    "default": "shelf"
+                },
+                {
+                    "name": ["-is", "--ids"],
+                    "help": "List of ids for a curated collection.",
+                },
+                {
+                    "name": ["-p", "--panel"],
+                    "help": "JSON object of the panel you want to use.",
+                },
+                {
+                    "name": ["-mid", "--media-id"],
+                    "dest": "source_media_id",
+                    "default": "",
+                    "help": "The media id that'll be used."
+                },
+                {
+                    "name": ["-mtitle", "--media-title"],
+                    "dest": "source_media_title",
+                    "default": "",
+                    "help": "The media title that'll be used."
+                },
+                {
+                    "name": ["-l", "--link"],
+                    "help": "The link used for dynamic collections."
+                },
+                {
+                    "name": ["-qp", "--query-params"],
+                    "dest": "query_params",
+                    "help": "The search parameters used when the response_type is 'browse'"
+                }
+            ]
+        ),
+        CommandInformation(
+            "edit", 
+            "Edit a collection item.",
+            [
+                {
+                    "name": "collection_type",
+                    "help": "Name of the collection type",
+                    "choices": feed_names
+                },
+                {
+                    "name": "id",
+                    "help": "Id of the item you want to edit",
+                },
+                {
+                    "name": ["title"],
+                    "default": "",
+                    "help": "A title for the item",
+                    "nargs": "?"
+                },
+                {
+                    "name": ["-d", "--description"],
+                    "default": "",
+                    "help": "Description for the item",
+                },
+                {
+                    "name": ["-pos", "--position"],
+                    "default": "",
+                    "help": "Position for the item.",
+                    "type": int
+                },
+                {
+                    "name": ["-rt", "--response-type"],
+                    "dest": "response_type",
+                    "default": "series",
+                    "help": "Response type for the item",
+                    "choices": [
+                        "recommendations",
+                        "history",
+                        "watchlist",
+                        "browse",
+                        "because_you_watched",
+                        "series",
+                        "recent_episodes"
+                        # "news_feed",
+                        # "artist",
+                        # "music_video",
+                        # "concert",
+                        # "music_media_mixed",
+                    ]
+                },
+                {
+                    "name": ["-dt", "--display-type"],
+                    "dest": "display_type",
+                    "help": "Display type for the item",
+                    "default": "shelf"
+                },
+                {
+                    "name": ["-is", "--ids"],
+                    "help": "List of ids for a curated collection.",
+                },
+                {
+                    "name": ["-p", "--panel"],
+                    "help": "JSON object of the panel you want to use.",
+                },
+                {
+                    "name": ["-mid", "--media-id"],
+                    "dest": "source_media_id",
+                    "default": "",
+                    "help": "The media id that'll be used."
+                },
+                {
+                    "name": ["-mtitle", "--media-title"],
+                    "dest": "source_media_title",
+                    "default": "",
+                    "help": "The media title that'll be used."
+                },
+                {
+                    "name": ["-l", "--link"],
+                    "help": "The link used for dynamic collections."
+                },
+                {
+                    "name": ["-qp", "--query-params"],
+                    "dest": "query_params",
+                    "help": "The search parameters used when the response_type is 'browse'"
+                }
+            ]
+        ),
+        CommandInformation(
+            "remove",
+            "Remove a collection item or remove a collection type.",
+            [
+                {
+                    "name": "collection_type",
+                    "help": "Name of the collection type"
+                }
+            ]
+        )
+    ]
+
+    def __init__(self, description):
+        self.parser = argparse.ArgumentParser(
+            description=description
+        )
+
+        self.commands_parser = self.parser.add_subparsers(
+            title="Commands",
+            dest="command",
+            required=True,
+            help="A list of the available commands."
+        )
+
+    def setup(self):
+        for command in CommandHandler.available_commands:
+            command.create(self.commands_parser)
+        
+        args = self.parser.parse_args()
+        args.func(args)
+
+
+    @staticmethod
+    def add(args):
+        feed_type, feed_path = setupCollection(args)
+        
+        with open(feed_path, "r") as f:
+            data = json.load(f)
+
+        items: list = feed_type == "hero_carousel" and data["heros"] or data["items"]
+        
+        args.id = scanIds(items, feed_type, args.id)
+
+        if not args.id:
+            print("Couldn't get a valid ID.")
+            return
+        
+        args.ids = not args.ids is None and args.ids.split(",") or None
+        args.panel = not args.panel is None and json.loads(args.panel) or None
+
+        extra = vars(args)
+
+        for key in list(extra):
+            if extra[key] == None:
+                extra.pop(key)
+
+        item = createItem(args.id, feed_type, **extra)
+
+        item.pop("func")
+        item.pop("command")
+        item.pop("collection_type")
+
+        items.append(item)
+
+        with open(feed_path, "w") as f:
+            json.dump(data, f, indent = 4)
+    
+    @staticmethod
+    def edit(args):
+        feed_type, feed_path = setupCollection(args)
+        
+        with open(feed_path, "r") as f:
+            data = json.load(f)
+
+        items: list = feed_type == "hero_carousel" and data["heros"] or data["items"]
+        
+        args.ids = not args.ids is None and args.ids.split(",") or None
+        args.panel = not args.panel is None and json.loads(args.panel) or None
+
+        extra = vars(args)
+
+        extra.pop("func")
+        extra.pop("command")
+        extra.pop("collection_type")
+
+        extra["id"] = f"{feed_type}-{extra.pop('id')}"
+
+        item = next((val for val in items if val["id"] == extra['id']), None)
+        
+
+        for key, value in extra.items():
+            if value is None or value == "" or value == "Collection Title": continue
+
+            if key == "ids":
+                if value[0] == " " or value[0] == "clear": item["ids"] = []
+                else:
+                    for id in value:
+                        item["ids"].append(id)
+                
+                value = item["ids"]
+
+            item[key] = value
+        
+        with open(feed_path, "w") as f:
+            json.dump(data, f, indent = 4)
+        
+    @staticmethod
+    def remove(args):
+        print("remove", args)
+
+if __name__ == "__main__":
+    handler = CommandHandler("A tool for managing a CR home feed repo.")
+
+    handler.setup()

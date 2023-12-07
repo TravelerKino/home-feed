@@ -1,0 +1,27 @@
+{
+    "type": "curated_collection",
+    "items": [
+        {
+            "id": "curated_collection-1000000",
+            "title": "Developer Picks",
+            "description": "Top picks from the developers over at Crunchyroll+",
+            "position": 7,
+            "response_type": "series",
+            "display_type": "shelf",
+            "ids": [
+                "GRMG8ZQZR",
+                "GYP8DP1MY",
+                "G4PH0WXVJ",
+                "GY190DKQR",
+                "GY5P48XEY",
+                "GYQWNXPZY",
+                "GYQ4MW246",
+                "GR751KNZY",
+                "GRDV0019R"
+            ],
+            "source_media_id": "",
+            "source_media_title": "",
+            "resource_type": "curated_collection"
+        }
+    ]
+}

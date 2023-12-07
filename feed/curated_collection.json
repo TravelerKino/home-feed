@@ -3,21 +3,19 @@
     "items": [
         {
             "id": "curated_collection-1000000",
-            "title": "Developer Picks",
-            "description": "Top picks from the developers over at Crunchyroll+",
+            "title": "Precure Collection",
+            "description": "The current collection of Precure titles on Crunchyroll",
             "position": 7,
             "response_type": "series",
             "display_type": "shelf",
             "ids": [
-                "GRMG8ZQZR",
-                "GYP8DP1MY",
-                "G4PH0WXVJ",
-                "GY190DKQR",
-                "GY5P48XEY",
-                "GYQWNXPZY",
-                "GYQ4MW246",
-                "GR751KNZY",
-                "GRDV0019R"
+                "G6X0J185Y",
+                "G6W47P0ER",
+                "GY9V4N8ER",
+                "GW4HM74GJ",
+                "GG5H5XE73",
+                "G0XHWM55N",
+                "GXJHM3G84"
             ],
             "source_media_id": "",
             "source_media_title": "",
